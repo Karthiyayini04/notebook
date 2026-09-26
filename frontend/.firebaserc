@@ -1,5 +1,8 @@
 {
   "projects": {
-    "default": "YOUR_FIREBASE_PROJECT_ID"
-  }
+    "default": "notebook-402f1",
+    "notebook": "notebook-402f1"
+  },
+  "targets": {},
+  "etags": {}
 }
