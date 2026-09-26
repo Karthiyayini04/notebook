@@ -1,0 +1,23 @@
+# Java
+backend/target/
+backend/*.class
+backend/.mvn/
+backend/mvnw
+backend/mvnw.cmd
+
+# Firebase service account key - NEVER commit this!
+backend/firebase-service-account.json
+backend/src/main/resources/firebase-service-account.json
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.iws
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
