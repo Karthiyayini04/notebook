@@ -1,226 +1,403 @@
 # 📓 Notebook App — Full Stack
 
 A credential-based notebook app.
-- **Frontend**: HTML/CSS/JS → hosted on Firebase Hosting (free)
-- **Backend**: Java Spring Boot REST API → hosted on Railway (free tier)
-- **Database**: Firebase Firestore (free tier)
-- **Auth**: JWT tokens + BCrypt password encryption
+
+* **Frontend**: HTML/CSS/JS → hosted on Firebase Hosting
+* **Backend**: Java Spring Boot REST API → hosted on Render
+* **Database**: Firebase Firestore
+* **Auth**: JWT tokens + BCrypt password hashing
 
 ---
 
 ## 🏗 Architecture
 
-```
+```text
 User (browser)
-   │  Login/Register with username+password
+   │
+   │ Login/Register with username + password
    ▼
 Firebase Hosting (frontend)
-   │  Sends API calls with JWT token
+   │
+   │ Sends API calls with JWT token
    ▼
-Railway (Java Spring Boot backend)
-   │  Validates JWT, BCrypt verifies password
+Render (Java Spring Boot backend)
+   │
+   │ Validates JWT, BCrypt verifies password
    ▼
 Firebase Firestore (database)
    │
-   ├── users/{username}           ← user doc (stores BCrypt hash, NOT plain password)
-   └── notes/{username}/items/{}  ← notes subcollection, isolated per user
-```
-
-## 🔐 How password security works
-
-1. **Register**: User types password → Spring Boot runs BCrypt (12 rounds) → stores `$2a$12$...` hash in Firestore. The plain password is **never stored**.
-2. **Login**: User types password → BCrypt hashes it again → compares with stored hash → issues JWT token (valid 24h).
-3. **API calls**: Every request sends `Authorization: Bearer <token>` → backend validates JWT → reads `username` from token → fetches only that user's notes.
-
----
-
-## 📁 Project structure
-
-```
-notebook/
-├── frontend/
-│   ├── public/
-│   │   ├── index.html
-│   │   ├── styles.css
-│   │   ├── app.js
-│   │   └── config.js        ← Put your backend URL here
-│   ├── firebase.json
-│   └── .firebaserc
-├── backend/
-│   ├── src/main/java/com/notebook/
-│   │   ├── NotebookApplication.java
-│   │   ├── config/          ← Firebase + Security config
-│   │   ├── controller/      ← REST endpoints
-│   │   ├── model/           ← User, Note
-│   │   ├── repository/      ← Firestore operations
-│   │   ├── security/        ← JWT filter + util
-│   │   └── service/         ← Business logic
-│   ├── src/main/resources/
-│   │   └── application.properties
-│   ├── pom.xml
-│   └── Procfile             ← Railway deploy config
-├── .gitignore
-└── README.md
+   ├── users/{username}           ← user document
+   │                                  stores BCrypt hash, NOT plain password
+   │
+   └── notes/{username}/items/{}  ← notes subcollection
+                                      isolated per user
 ```
 
 ---
 
-## 🚀 STEP-BY-STEP DEPLOYMENT GUIDE
+## 🔐 How Password Security Works
 
----
+1. **Register**: User enters a password → Spring Boot hashes it using BCrypt → the BCrypt hash is stored in Firestore. The plain password is never stored.
 
-### STEP 1 — Create Firebase Project
+2. **Login**: User enters the password → BCrypt verifies it against the stored hash → a JWT token is issued.
 
-1. Go to https://console.firebase.google.com
-2. Click **Add project** → name it (e.g. `my-notebook-app`) → Create
-3. In the left sidebar → **Firestore Database** → Create database → **Start in test mode** → Choose a region → Done
+3. **API calls**: Every authenticated request sends:
 
----
-
-### STEP 2 — Get Firebase Service Account Key
-
-This lets the Java backend talk to Firestore.
-
-1. In Firebase Console → ⚙️ Project Settings → **Service accounts** tab
-2. Click **Generate new private key** → Download the JSON file
-3. Rename it to `firebase-service-account.json`
-4. Put it inside `backend/src/main/resources/`
-
-> ⚠️ This file is in `.gitignore` — **never commit it to GitHub**!
-
----
-
-### STEP 3 — Deploy Backend to Railway
-
-Railway gives you a free Java hosting server.
-
-1. Go to https://railway.app → Sign up with GitHub
-2. Click **New Project** → **Deploy from GitHub repo** → select your repo
-3. Choose the `backend` folder as the root directory
-4. Add environment variables in Railway dashboard:
-
-```
-SPRING_APPLICATION_JSON={"jwt.secret":"YourLongRandomSecretKey123456789","cors.allowed-origins":"https://YOUR_PROJECT_ID.web.app"}
+```text
+Authorization: Bearer <token>
 ```
 
-5. Also upload your Firebase service account as an environment variable:
-   - Go to **Variables** → Add:
-   ```
-   FIREBASE_CREDENTIALS_JSON=<paste entire content of firebase-service-account.json>
-   ```
-   Then update `FirebaseConfig.java` to read from env var instead of file:
-   ```java
-   // In FirebaseConfig.java, replace the file reading with:
-   String json = System.getenv("FIREBASE_CREDENTIALS_JSON");
-   InputStream serviceAccount = new ByteArrayInputStream(json.getBytes());
-   ```
-
-6. Railway will build and deploy → copy the URL (e.g. `https://notebook-backend.up.railway.app`)
+The backend validates the JWT, gets the username from the token, and accesses only that user's notes.
 
 ---
 
-### STEP 4 — Update Frontend Config
+# 🚀 STEP-BY-STEP DEPLOYMENT GUIDE
 
-Open `frontend/public/config.js` and update:
+## STEP 1 — Create Firebase Project
+
+1. Go to Firebase Console.
+2. Click **Add project**.
+3. Enter your project name, for example:
+
+```text
+my-notebook-app
+```
+
+4. Create the project.
+5. In the Firebase Console, open **Firestore Database**.
+6. Click **Create database**.
+7. Select your preferred region.
+8. Configure the Firestore security settings according to your application requirements.
+
+---
+
+## STEP 2 — Get Firebase Service Account Key
+
+The Java backend needs credentials to communicate with Firestore.
+
+1. Firebase Console → **Project Settings**
+2. Open the **Service accounts** tab.
+3. Click **Generate new private key**.
+4. Download the JSON file.
+5. Rename it:
+
+```text
+firebase-service-account.json
+```
+
+For local development, you can place it inside:
+
+```text
+backend/src/main/resources/
+```
+
+For production deployment on Render, use an environment variable instead of storing the JSON file in the repository.
+
+---
+
+# STEP 3 — Deploy Backend to Render
+
+The Java Spring Boot backend is hosted on **Render**.
+
+1. Go to Render.
+2. Sign up/login using GitHub.
+3. Create a **New Web Service**.
+4. Connect your GitHub repository.
+5. Select your notebook repository.
+6. Configure the backend service.
+
+If your backend is inside the `backend` directory, set the **Root Directory** to:
+
+```text
+backend
+```
+
+### Build Command
+
+For Maven:
+
+```bash
+./mvnw clean package -DskipTests
+```
+
+or, if Maven is installed:
+
+```bash
+mvn clean package -DskipTests
+```
+
+### Start Command
+
+For example:
+
+```bash
+java -jar target/notebook-0.0.1-SNAPSHOT.jar
+```
+
+Use the actual JAR filename generated by your project.
+
+---
+
+## STEP 4 — Configure Render Environment Variables
+
+In your Render service:
+
+**Dashboard → Environment → Environment Variables**
+
+Add the required environment variables.
+
+For example:
+
+```text
+JWT_SECRET=YourLongRandomSecretKey
+CORS_ALLOWED_ORIGINS=https://YOUR_PROJECT_ID.web.app
+```
+
+For Firebase credentials, add:
+
+```text
+FIREBASE_CREDENTIALS_JSON=<paste the complete Firebase service account JSON>
+```
+
+Your backend should read the Firebase credentials from the environment variable.
+
+For example:
+
+```java
+String json = System.getenv("FIREBASE_CREDENTIALS_JSON");
+
+InputStream serviceAccount =
+        new ByteArrayInputStream(json.getBytes(StandardCharsets.UTF_8));
+```
+
+
+---
+
+## STEP 5 — Get Your Render Backend URL
+
+After Render successfully deploys your Spring Boot application, Render provides a URL similar to:
+
+```text
+https://notebook-backend.onrender.com
+```
+
+Use your actual Render URL.
+
+Test the backend:
+
+```text
+https://notebook-backend.onrender.com
+```
+
+---
+
+## STEP 6 — Update Frontend API Configuration
+
+Open:
+
+```text
+frontend/public/config.js
+```
+
+Set the Render backend URL:
 
 ```javascript
-const API_BASE = "https://notebook-backend.up.railway.app";
+const API_BASE = "https://notebook-backend.onrender.com";
 ```
 
-Also update `backend/src/main/resources/application.properties`:
-```
+Replace the URL with your actual Render service URL.
+
+---
+
+## STEP 7 — Configure CORS
+
+Update your backend configuration so that requests from your Firebase Hosting domain are allowed.
+
+For example:
+
+```properties
 cors.allowed-origins=https://YOUR_PROJECT_ID.web.app
 ```
 
+If you also use the Firebase `firebaseapp.com` domain, configure it as needed:
+
+```properties
+cors.allowed-origins=https://YOUR_PROJECT_ID.web.app,https://YOUR_PROJECT_ID.firebaseapp.com
+```
+
+Make sure the configured origins match the actual frontend domains.
+
 ---
 
-### STEP 5 — Deploy Frontend to Firebase
+# STEP 8 — Deploy Frontend to Firebase Hosting
+
+Install Firebase CLI if you haven't already:
 
 ```bash
-# Install Firebase CLI (once)
 npm install -g firebase-tools
+```
 
-# Login
+Login:
+
+```bash
 firebase login
+```
 
-# Go to frontend folder
+Go to the frontend directory:
+
+```bash
 cd frontend
+```
 
-# Set your project
+Connect the Firebase project:
+
+```bash
 firebase use --add
-# (select your Firebase project from the list)
+```
 
-# Deploy!
+Select your Firebase project.
+
+Deploy:
+
+```bash
 firebase deploy --only hosting
 ```
 
-Your live URL: `https://YOUR_PROJECT_ID.web.app`
+Your frontend will be available at:
+
+```text
+https://YOUR_PROJECT_ID.web.app
+```
 
 ---
 
-### STEP 6 — Push to GitHub
+# STEP 9 — Push the Project to GitHub
+
+From the root `notebook/` directory:
 
 ```bash
-# From the root notebook/ folder
 git init
-git add .
-git commit -m "Initial commit: Notebook app with auth"
 
-# Create repo on github.com first, then:
+git add .
+
+git commit -m "Initial commit: Notebook app with authentication"
+```
+
+Create a GitHub repository and then:
+
+```bash
 git remote add origin https://github.com/YOUR_USERNAME/notebook-app.git
+
 git branch -M main
+
 git push -u origin main
 ```
 
----
-
-### STEP 7 — Share on LinkedIn
-
-Post template:
-```
-🚀 Just shipped my Notebook App!
-
-Built with:
-⚡ Java Spring Boot (REST API)
-🔐 BCrypt password encryption + JWT authentication
-🔥 Firebase Firestore (database) + Hosting
-📝 Rich text editor with tags and search
-
-🔗 Live app: https://YOUR_PROJECT_ID.web.app
-💻 GitHub: https://github.com/YOUR_USERNAME/notebook-app
-
-#Java #SpringBoot #Firebase #WebDevelopment #FullStack
-```
+> ⚠️ Before pushing, verify that your Firebase service-account JSON, `.env` files, JWT secrets, and other credentials are included in `.gitignore`.
 
 ---
 
-## 🧪 Test the API locally
+# 🧪 Test the API Locally
+
+### Register
 
 ```bash
-# Register
 curl -X POST http://localhost:8080/api/auth/register \
   -H "Content-Type: application/json" \
   -d '{"username":"john","password":"secret123"}'
+```
 
-# Login → copy the token
+### Login
+
+```bash
 curl -X POST http://localhost:8080/api/auth/login \
   -H "Content-Type: application/json" \
   -d '{"username":"john","password":"secret123"}'
+```
 
-# Get notes (use token from above)
+Copy the JWT token returned by the login API.
+
+### Get Notes
+
+```bash
 curl http://localhost:8080/api/notes \
   -H "Authorization: Bearer YOUR_TOKEN_HERE"
 ```
 
 ---
 
-## 🔥 Firebase Free Tier Limits
+# 🌐 Production Architecture
 
-| Resource | Free limit |
-|---|---|
-| Firestore reads | 50,000 / day |
-| Firestore writes | 20,000 / day |
-| Firestore storage | 1 GB |
-| Firebase Hosting | 10 GB / month |
+```text
+                    ┌──────────────────────┐
+                    │        User          │
+                    │      Browser         │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │  Firebase Hosting    │
+                    │      Frontend        │
+                    │   HTML/CSS/JavaScript │
+                    └──────────┬───────────┘
+                               │
+                         REST API + JWT
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │       Render         │
+                    │  Spring Boot API     │
+                    │                      │
+                    │  JWT Validation      │
+                    │  BCrypt Verification │
+                    │  Business Logic      │
+                    └──────────┬───────────┘
+                               │
+                               ▼
+                    ┌──────────────────────┐
+                    │ Firebase Firestore   │
+                    │                      │
+                    │ users/{username}     │
+                    │ notes/{username}/    │
+                    │        items/{}      │
+                    └──────────────────────┘
+```
 
-More than enough for a portfolio project or small app!
+---
+
+# 📁 Project Structure
+
+```text
+notebook/
+├── frontend/
+│   ├── public/
+│   │   ├── index.html
+│   │   ├── styles.css
+│   │   ├── app.js
+│   │   └── config.js
+│   ├── firebase.json
+│   └── .firebaserc
+│
+├── backend/
+│   ├── src/main/java/com/notebook/
+│   │   ├── NotebookApplication.java
+│   │   ├── config/
+│   │   ├── controller/
+│   │   ├── model/
+│   │   ├── repository/
+│   │   ├── security/
+│   │   └── service/
+│   │
+│   ├── src/main/resources/
+│   │   └── application.properties
+│   ├── pom.xml
+│   └── ...
+│
+├── .gitignore
+└── README.md
+```
+
+---
+
+
+`
